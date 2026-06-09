@@ -1,0 +1,12 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+# Cron: 10:07 AM ET (UTC-4 in summer) = 14:07 UTC, weekdays only
+cronSchedule = "7 14 * * 1-5"
+startCommand = "python main.py"
+restartPolicyType = "never"
+
+[volumes]
+# Persistent storage for session token + state
+mountPath = "/data"

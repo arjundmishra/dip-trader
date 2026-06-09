@@ -1,0 +1,4 @@
+anthropic>=0.40.0
+robin-stocks>=3.0.0
+yfinance>=0.2.36
+pyotp>=2.9.0

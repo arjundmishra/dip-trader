@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__67bb90d1-7bf4-4702-900e-cee2fec9cda7__get_accounts",
+      "mcp__67bb90d1-7bf4-4702-900e-cee2fec9cda7__get_equity_quotes",
+      "mcp__67bb90d1-7bf4-4702-900e-cee2fec9cda7__get_portfolio",
+      "mcp__scheduled-tasks__create_scheduled_task",
+      "mcp__scheduled-tasks__list_scheduled_tasks"
+    ]
+  }
+}
