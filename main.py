@@ -37,6 +37,9 @@ TIERS = [
     (3,   50,  "small"),
 ]
 
+MA_WINDOW = 200
+TRAILING_STOP_PCT = 0.25
+
 
 # ── State helpers ────────────────────────────────────────────────────────────
 
@@ -62,6 +65,18 @@ def get_20day_high(symbol: str) -> float | None:
         return float(hist["Close"].max()) if not hist.empty else None
     except Exception as e:
         log.warning(f"{symbol}: 20d-high lookup failed — {e}")
+        return None
+
+
+def get_200day_ma(symbol: str) -> float | None:
+    try:
+        hist = yf.Ticker(symbol).history(period="1y")
+        if hist.empty:
+            return None
+        closes = hist["Close"].tail(MA_WINDOW)
+        return float(closes.mean()) if len(closes) else None
+    except Exception as e:
+        log.warning(f"{symbol}: 200d-MA lookup failed — {e}")
         return None
 
 
@@ -201,6 +216,28 @@ def place_order(symbol: str, amount_usd: float) -> bool:
         return False
 
 
+def get_holdings() -> dict:
+    try:
+        return rh.build_holdings() or {}
+    except Exception as e:
+        log.warning(f"Could not fetch holdings: {e}")
+        return {}
+
+
+def place_sell_all(symbol: str, quantity: float) -> bool:
+    try:
+        result = rh.order_sell_fractional_by_quantity(
+            symbol, round(quantity, 6), timeInForce="gfd", extendedHours=False)
+        if result and result.get("id"):
+            log.info(f"  ✓ SOLD {symbol} {quantity:.6f} sh (id={result['id'][:8]}...)")
+            return True
+        log.warning(f"  ✗ Sell rejected for {symbol}: {result}")
+        return False
+    except Exception as e:
+        log.error(f"  ✗ Sell error for {symbol}: {e}")
+        return False
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def run():
@@ -221,6 +258,26 @@ def run():
 
     buying_power = get_buying_power()
     log.info(f"Buying power: ${buying_power:.2f}\n")
+
+    sells_made = []
+    holdings = get_holdings()
+    for symbol, h in holdings.items():
+        try:
+            price = float(h.get("price", 0) or 0)
+            qty = float(h.get("quantity", 0) or 0)
+            if price <= 0 or qty <= 0:
+                continue
+            peak = max(state["peaks"].get(symbol, 0.0), price)
+            state["peaks"][symbol] = peak
+            drawdown = (peak - price) / peak if peak > 0 else 0.0
+            if drawdown >= TRAILING_STOP_PCT:
+                log.info(f"{symbol:6s} down {drawdown*100:.1f}% from peak -> TRAILING STOP SELL ALL")
+                if place_sell_all(symbol, qty):
+                    sells_made.append({"symbol": symbol, "price": round(price, 4),
+                                       "peak": round(peak, 4), "drawdown_pct": round(drawdown * 100, 2)})
+                    state["peaks"].pop(symbol, None)
+        except Exception as e:
+            log.error(f"{symbol}: sell-check error — {e}")
 
     today_spent = 0.0
     orders_placed = []
@@ -243,6 +300,11 @@ def run():
 
             if dip_pct < 3:
                 skipped.append((symbol, f"dip {dip_pct:.1f}% < 3% threshold"))
+                continue
+
+            ma200 = get_200day_ma(symbol)
+            if ma200 and current_price < ma200:
+                skipped.append((symbol, f"below 200-day MA (${current_price:.2f} < ${ma200:.2f}) — downtrend"))
                 continue
 
             # Assign tier
@@ -296,6 +358,9 @@ def run():
     log.info("=" * 70)
     log.info(f"  {market_ctx}")
     log.info(f"  Stocks scanned: {len(watchlist)}")
+    log.info(f"\n  TRAILING-STOP SELLS ({len(sells_made)}):")
+    for s in sells_made:
+        log.info(f"    {s['symbol']:6s}  down {s['drawdown_pct']:.1f}% from peak ${s['peak']:.2f} -> sold @ ${s['price']:.2f}")
     log.info(f"\n  ORDERS PLACED ({len(orders_placed)}):")
     for o in orders_placed:
         log.info(
