@@ -162,7 +162,7 @@ def login_robinhood():
         "username": username,
         "password": password,
         "store_session": True,
-        "pickle_name": str(Path(os.getenv("STATE_FILE_PATH", "/data")).parent / "rh_session"),
+        "pickle_name": str(STATE_FILE.parent / "rh_session"),
     }
 
     if totp_secret:

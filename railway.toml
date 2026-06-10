@@ -7,6 +7,8 @@ cronSchedule = "7 14 * * 1-5"
 startCommand = "python main.py"
 restartPolicyType = "never"
 
-[volumes]
-# Persistent storage for session token + state
-mountPath = "/data"
+# NOTE: Volumes CANNOT be defined in railway.toml — Railway ignores this.
+# Create the volume manually in the dashboard:
+#   service -> + Volume -> mount path: /data
+# Then set env var STATE_FILE_PATH=/data/state.json so the session token
+# and state persist to the volume between cron runs.
