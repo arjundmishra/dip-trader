@@ -375,8 +375,12 @@ def login_robinhood():
     username = os.environ["RH_USERNAME"]
     password = os.environ["RH_PASSWORD"]
 
-    pickle_path = Path("/data/rh_session")
-    pickle_file = Path("/data/rh_session.pickle")
+    # robin_stocks resolves the session file to:
+    #   <pickle_path>/("robinhood" + pickle_name + ".pickle")
+    # so pickle_path="/data" + pickle_name="rh_session" -> /data/robinhoodrh_session.pickle
+    PICKLE_DIR = "/data"
+    PICKLE_NAME = "rh_session"
+    pickle_file = Path(PICKLE_DIR) / f"robinhood{PICKLE_NAME}.pickle"
 
     # Seed pickle from env var on first run (before the file exists on the volume)
     session_b64 = os.environ.get("RH_SESSION_B64")
@@ -390,7 +394,8 @@ def login_robinhood():
         "username": username,
         "password": password,
         "store_session": True,
-        "pickle_name": "rh_session",
+        "pickle_path": PICKLE_DIR,
+        "pickle_name": PICKLE_NAME,
     }
 
     # TOTP fallback — only used if RH_TOTP_SECRET is still set
