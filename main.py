@@ -171,15 +171,27 @@ Return ONLY the JSON array. Example: ["NVDA", "PLTR", "GOOGL", "AMD", "LLY"]"""
 def login_robinhood():
     username = os.environ["RH_USERNAME"]
     password = os.environ["RH_PASSWORD"]
-    totp_secret = os.environ.get("RH_TOTP_SECRET")
+
+    pickle_path = Path("/data/rh_session")
+    pickle_file = Path("/data/rh_session.pickle")
+
+    # Seed pickle from env var on first run (before the file exists on the volume)
+    session_b64 = os.environ.get("RH_SESSION_B64")
+    if session_b64 and not pickle_file.exists():
+        import base64
+        pickle_file.parent.mkdir(parents=True, exist_ok=True)
+        pickle_file.write_bytes(base64.b64decode(session_b64))
+        log.info("Seeded session from RH_SESSION_B64")
 
     kwargs = {
         "username": username,
         "password": password,
         "store_session": True,
-        "pickle_name": str(Path(os.getenv("STATE_FILE_PATH", "/data")).parent / "rh_session"),
+        "pickle_name": "rh_session",
     }
 
+    # TOTP fallback — only used if RH_TOTP_SECRET is still set
+    totp_secret = os.environ.get("RH_TOTP_SECRET")
     if totp_secret:
         import pyotp
         kwargs["mfa_code"] = pyotp.TOTP(totp_secret).now()
@@ -190,11 +202,14 @@ def login_robinhood():
 
 
 def get_buying_power() -> float:
+    """Returns cash-only balance — never margin."""
     try:
         profile = rh.load_account_profile()
-        return float(profile.get("buying_power", 0))
+        # Use 'cash' not 'buying_power' — buying_power includes margin
+        cash = float(profile.get("cash", 0) or 0)
+        return cash
     except Exception as e:
-        log.warning(f"Could not fetch buying power: {e}")
+        log.warning(f"Could not fetch cash balance: {e}")
         return 0.0
 
 
@@ -257,7 +272,7 @@ def run():
     log.info(f"Market context: {market_ctx}")
 
     buying_power = get_buying_power()
-    log.info(f"Buying power: ${buying_power:.2f}\n")
+    log.info(f"Cash available (no margin): ${buying_power:.2f}\n")
 
     sells_made = []
     holdings = get_holdings()
@@ -372,7 +387,7 @@ def run():
         log.info(f"    {sym:6s}  {reason}")
     log.info(f"\n  Spent today:            ${today_spent:.2f}")
     log.info(f"  Total deployed ever:    ${state['total_deployed']:.2f}")
-    log.info(f"  Remaining buying power: ${buying_power - today_spent:.2f}")
+    log.info(f"  Remaining cash:         ${buying_power - today_spent:.2f}")
     log.info("=" * 70)
 
 

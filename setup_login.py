@@ -12,8 +12,9 @@ import os
 from pathlib import Path
 import robin_stocks.robinhood as rh
 
-DATA_DIR = Path(os.getenv("STATE_FILE_PATH", "/data/state.json")).parent
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+PICKLE_NAME = "rh_session"
+# robin_stocks always saves to ~/.tokens/robinhooddata/<name>.pickle
+PICKLE_FILE = Path.home() / ".tokens" / "robinhooddata" / f"{PICKLE_NAME}.pickle"
 
 print("=" * 50)
 print("  Robinhood One-Time Login Setup")
@@ -25,25 +26,34 @@ password = os.environ.get("RH_PASSWORD") or input("Robinhood password: ").strip(
 print("\nIf you use MFA, enter your code now (or press Enter to skip):")
 mfa_code = input("MFA code (leave blank if none): ").strip() or None
 
-pickle_path = str(DATA_DIR / "rh_session")
-
 kwargs = {
     "username": username,
     "password": password,
     "store_session": True,
-    "pickle_name": pickle_path,
+    "pickle_name": PICKLE_NAME,
 }
 if mfa_code:
     kwargs["mfa_code"] = mfa_code
 
 try:
     rh.login(**kwargs)
-    print(f"\n✓ Login successful! Session cached at: {pickle_path}.pickle")
-    print("  You can now run main.py without interactive prompts.")
+    print(f"\n✓ Login successful!")
 
     profile = rh.load_account_profile()
     bp = profile.get("buying_power", "unknown")
     print(f"  Buying power: ${bp}")
+
+    import base64
+    if PICKLE_FILE.exists():
+        b64 = base64.b64encode(PICKLE_FILE.read_bytes()).decode()
+        print("\n" + "=" * 50)
+        print("  COPY THIS TO RAILWAY as RH_SESSION_B64:")
+        print("=" * 50)
+        print(b64)
+        print("=" * 50)
+        print("  Railway seeds from this on first run, then auto-refreshes daily.")
+    else:
+        print(f"  Warning: pickle not found at {PICKLE_FILE}")
 except Exception as e:
     print(f"\n✗ Login failed: {e}")
     raise
