@@ -5,7 +5,8 @@
       "mcp__67bb90d1-7bf4-4702-900e-cee2fec9cda7__get_equity_quotes",
       "mcp__67bb90d1-7bf4-4702-900e-cee2fec9cda7__get_portfolio",
       "mcp__scheduled-tasks__create_scheduled_task",
-      "mcp__scheduled-tasks__list_scheduled_tasks"
+      "mcp__scheduled-tasks__list_scheduled_tasks",
+      "Bash(python3 -c \"import robin_stocks.robinhood.authentication as a, inspect; src=inspect.getsource\\(a.login\\); print\\(src[:1500]\\)\")"
     ]
   }
 }
